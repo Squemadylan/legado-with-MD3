@@ -244,14 +244,8 @@ object ThemeImportExport {
         assetPaths.forEach { (key, path) ->
             if (!path.isNullOrBlank()) {
                 try {
-                    val file = if (path.startsWith("content://")) {
-                        null // TODO: 处理 content uri
-                    } else {
-                        File(path)
-                    }
-                    if (file?.exists() == true) {
-                        assets[key] = EncoderUtils.base64Encode(file.readBytes())
-                    }
+                    val bytes = readAssetBytes(path) ?: return@forEach
+                    assets[key] = EncoderUtils.base64Encode(bytes)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -273,19 +267,27 @@ object ThemeImportExport {
         val pathList = paths.split(",").filter { it.isNotBlank() }
         pathList.forEachIndexed { index, path ->
             try {
-                val file = if (path.startsWith("content://")) {
-                    null
-                } else {
-                    File(path)
-                }
-                if (file?.exists() == true) {
-                    val key = if (pathList.size == 1) keyPrefix else "${keyPrefix}_$index"
-                    assets[key] = EncoderUtils.base64Encode(file.readBytes())
-                }
+                val bytes = readAssetBytes(path) ?: return@forEachIndexed
+                val key = if (pathList.size == 1) keyPrefix else "${keyPrefix}_$index"
+                assets[key] = EncoderUtils.base64Encode(bytes)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+    }
+
+    /**
+     * 统一读取资源字节：支持普通文件路径与 SAF content:// URI。
+     * 文件不存在、URI 不可读或路径非法时返回 null，由调用方静默跳过。
+     */
+    private fun readAssetBytes(path: String): ByteArray? {
+        if (path.startsWith("content://")) {
+            return runCatching {
+                appCtx.contentResolver.openInputStream(Uri.parse(path))?.use { it.readBytes() }
+            }.getOrNull()
+        }
+        val file = File(path)
+        return if (file.exists()) file.readBytes() else null
     }
 
     /**

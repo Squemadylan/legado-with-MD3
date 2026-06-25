@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 import com.jayway.jsonpath.DocumentContext
 import io.legado.app.utils.GSON
 import io.legado.app.utils.jsonPath
+import io.legado.app.utils.readFloat
 import io.legado.app.utils.readLong
 import io.legado.app.utils.readString
 
@@ -29,7 +30,32 @@ data class HttpTTS(
     override var enabledCookieJar: Boolean? = false,
     var loginCheckJs: String? = null,
     @ColumnInfo(defaultValue = "0")
-    var lastUpdateTime: Long = System.currentTimeMillis()
+    var lastUpdateTime: Long = System.currentTimeMillis(),
+    // --- 豆包 TTS 专用字段 ---
+    @ColumnInfo(defaultValue = "raw")
+    var ttsType: String = "raw",
+    var doubaoAppId: String? = null,
+    var doubaoAccessToken: String? = null,
+    @ColumnInfo(defaultValue = "BV700_streaming")
+    var doubaoVoiceType: String = "BV700_streaming",
+    @ColumnInfo(defaultValue = "1.0")
+    var doubaoSpeedRatio: Float = 1.0f,
+    @ColumnInfo(defaultValue = "1.0")
+    var doubaoPitchRatio: Float = 1.0f,
+    @ColumnInfo(defaultValue = "1.0")
+    var doubaoVolumeRatio: Float = 1.0f,
+    @ColumnInfo(defaultValue = "neutral")
+    var doubaoEmotion: String = "neutral",
+    @ColumnInfo(defaultValue = "cn")
+    var doubaoLanguage: String = "cn",
+    // --- MiMo TTS 专用字段 ---
+    var mimoApiKey: String? = null,
+    @ColumnInfo(defaultValue = "冰糖")
+    var mimoVoice: String = "冰糖",
+    @ColumnInfo(defaultValue = "mimo-v2.5-tts")
+    var mimoModel: String = "mimo-v2.5-tts",
+    var mimoStyle: String? = null,
+    var mimoVoiceDesign: String? = null
 ) : BaseSource {
 
     override fun getTag(): String {
@@ -49,14 +75,28 @@ data class HttpTTS(
                 HttpTTS(
                     id = doc.readLong("$.id") ?: System.currentTimeMillis(),
                     name = doc.readString("$.name")!!,
-                    url = doc.readString("$.url")!!,
+                    url = doc.readString("$.url") ?: "",
                     contentType = doc.readString("$.contentType"),
                     concurrentRate = doc.readString("$.concurrentRate"),
                     loginUrl = doc.readString("$.loginUrl"),
                     loginUi = if (loginUi is List<*>) GSON.toJson(loginUi) else loginUi?.toString(),
                     header = doc.readString("$.header"),
                     loginCheckJs = doc.readString("$.loginCheckJs"),
-                    lastUpdateTime = doc.readLong("$.lastUpdateTime") ?: System.currentTimeMillis()
+                    lastUpdateTime = doc.readLong("$.lastUpdateTime") ?: System.currentTimeMillis(),
+                    ttsType = doc.readString("$.ttsType") ?: "raw",
+                    doubaoAppId = doc.readString("$.doubaoAppId"),
+                    doubaoAccessToken = doc.readString("$.doubaoAccessToken"),
+                    doubaoVoiceType = doc.readString("$.doubaoVoiceType") ?: "BV700_streaming",
+                    doubaoSpeedRatio = doc.readFloat("$.doubaoSpeedRatio") ?: 1.0f,
+                    doubaoPitchRatio = doc.readFloat("$.doubaoPitchRatio") ?: 1.0f,
+                    doubaoVolumeRatio = doc.readFloat("$.doubaoVolumeRatio") ?: 1.0f,
+                    doubaoEmotion = doc.readString("$.doubaoEmotion") ?: "neutral",
+                    doubaoLanguage = doc.readString("$.doubaoLanguage") ?: "cn",
+                    mimoApiKey = doc.readString("$.mimoApiKey"),
+                    mimoVoice = doc.readString("$.mimoVoice") ?: "冰糖",
+                    mimoModel = doc.readString("$.mimoModel") ?: "mimo-v2.5-tts",
+                    mimoStyle = doc.readString("$.mimoStyle"),
+                    mimoVoiceDesign = doc.readString("$.mimoVoiceDesign")
                 )
             }
         }

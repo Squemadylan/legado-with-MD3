@@ -679,9 +679,6 @@ class ReadBookController(
                 screenOffTimerStart()
             }
 
-            is ReadBookEffect.ToggleBrightnessAuto -> { /* TODO */
-            }
-
             // ── Phase 4: Activity-dependent effects ──
             is ReadBookEffect.ToggleReadAloud -> onToggleReadAloud?.invoke() ?: toggleReadAloud()
             is ReadBookEffect.ToggleAutoPage -> onToggleAutoPage?.invoke() ?: toggleAutoPage()

@@ -21,6 +21,8 @@ import io.legado.app.ui.book.read.sheet.EffectiveReplacesSheet
 import io.legado.app.ui.book.read.sheet.FontSelectSheet
 import io.legado.app.ui.book.read.sheet.HighlightRuleConfigSheet
 import io.legado.app.ui.book.read.sheet.HttpTtsEditSheet
+import io.legado.app.ui.book.read.sheet.DoubaoTtsEditSheet
+import io.legado.app.ui.book.read.sheet.MimoTtsEditSheet
 import io.legado.app.ui.book.read.sheet.MoreConfigSheet
 import io.legado.app.ui.book.read.sheet.PageAnimConfigSheet
 import io.legado.app.ui.book.read.sheet.PageKeyConfigSheet
@@ -208,6 +210,22 @@ fun ReadBookScreen(
     )
     HttpTtsEditSheet(
         show = state.activeSheet is ReadBookSheet.HttpTtsEdit,
+        httpTTS = state.editingHttpTts,
+        onIntent = onIntent,
+        onDismissRequest = {
+            onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.SpeakEngineConfig))
+        },
+    )
+    DoubaoTtsEditSheet(
+        show = state.activeSheet is ReadBookSheet.DoubaoTtsEdit,
+        httpTTS = state.editingHttpTts,
+        onIntent = onIntent,
+        onDismissRequest = {
+            onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.SpeakEngineConfig))
+        },
+    )
+    MimoTtsEditSheet(
+        show = state.activeSheet is ReadBookSheet.MimoTtsEdit,
         httpTTS = state.editingHttpTts,
         onIntent = onIntent,
         onDismissRequest = {

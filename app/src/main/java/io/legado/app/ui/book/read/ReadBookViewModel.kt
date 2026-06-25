@@ -288,7 +288,6 @@ class ReadBookViewModel(
             is ReadBookIntent.UpSystemUiVisibility -> _effects.tryEmit(ReadBookEffect.UpSystemUiVisibility)
             is ReadBookIntent.UpContent -> ReadBook.loadOrUpContent()
             is ReadBookIntent.SetBrightness -> _effects.tryEmit(ReadBookEffect.SetBrightness(intent.value))
-            is ReadBookIntent.ToggleBrightnessAuto -> _effects.tryEmit(ReadBookEffect.ToggleBrightnessAuto)
             is ReadBookIntent.SeekToChapter -> {
                 ReadBook.saveCurrentBookProgress()
                 openChapter(intent.index)
@@ -669,13 +668,36 @@ class ReadBookViewModel(
                     execute {
                         appDb.httpTTSDao.get(intent.engineId)
                     }.onSuccess { tts ->
+                        val sheet = when (tts?.ttsType) {
+                            "doubao" -> ReadBookSheet.DoubaoTtsEdit
+                            "mimo" -> ReadBookSheet.MimoTtsEdit
+                            else -> ReadBookSheet.HttpTtsEdit(intent.engineId)
+                        }
                         _uiState.update {
                             it.copy(
                                 editingHttpTts = tts,
-                                activeSheet = ReadBookSheet.HttpTtsEdit(intent.engineId),
+                                activeSheet = sheet,
                             )
                         }
                     }
+                }
+            }
+
+            is ReadBookIntent.EditDoubaoTts -> {
+                _uiState.update {
+                    it.copy(
+                        editingHttpTts = HttpTTS(ttsType = "doubao"),
+                        activeSheet = ReadBookSheet.DoubaoTtsEdit,
+                    )
+                }
+            }
+
+            is ReadBookIntent.EditMimoTts -> {
+                _uiState.update {
+                    it.copy(
+                        editingHttpTts = HttpTTS(ttsType = "mimo"),
+                        activeSheet = ReadBookSheet.MimoTtsEdit,
+                    )
                 }
             }
 
@@ -698,6 +720,11 @@ class ReadBookViewModel(
                     appDb.httpTTSDao.insert(intent.httpTTS)
                 }.onSuccess {
                     loadTtsEngineItems()
+                    // 如果保存的是当前正在使用的引擎，刷新 ReadAloud.httpTTS
+                    val savedId = intent.httpTTS.id.toString()
+                    if (ReadAloud.ttsEngine == savedId) {
+                        ReadAloud.httpTTS = intent.httpTTS
+                    }
                     _uiState.update {
                         it.copy(
                             editingHttpTts = null,
@@ -1038,6 +1065,7 @@ class ReadBookViewModel(
                             title = httpTts.name,
                             value = httpTts.id.toString(),
                             loginUrl = httpTts.loginUrl,
+                            ttsType = httpTts.ttsType,
                         )
                     )
                 }

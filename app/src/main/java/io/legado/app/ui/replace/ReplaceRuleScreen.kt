@@ -3,6 +3,7 @@ package io.legado.app.ui.replace
 import android.content.ClipData
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,7 +67,11 @@ import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenuItem
 import io.legado.app.ui.widget.components.rules.RuleListScaffold
 import io.legado.app.ui.widget.components.tabRow.AppTabRow
 import io.legado.app.ui.widget.components.text.AppText
+import io.legado.app.ui.widget.dialog.TextDialog
+import io.legado.app.utils.showDialogFragment
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -350,7 +355,10 @@ fun ReplaceRuleScreen(
             )
             RoundDropdownMenuItem(
                 text = "帮助",
-                onClick = { /*TODO*/ dismiss() }
+                onClick = {
+                    scope.launch { showRegexHelp(context) }
+                    dismiss()
+                }
             )
             PillDivider()
             RoundDropdownMenuItem(
@@ -453,4 +461,23 @@ fun ReplaceRuleScreen(
             }
         }
     }
+}
+
+private suspend fun showRegexHelp(context: android.content.Context) {
+    val activity = context as? AppCompatActivity ?: return
+    val mdText = withContext(Dispatchers.IO) {
+        runCatching {
+            context.assets
+                .open("web/help/md/regexHelp.md")
+                .bufferedReader()
+                .use { it.readText() }
+        }.getOrElse { return@withContext null }
+    } ?: return
+    activity.showDialogFragment(
+        TextDialog(
+            context.getString(R.string.help),
+            mdText,
+            TextDialog.Mode.MD
+        )
+    )
 }

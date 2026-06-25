@@ -60,6 +60,12 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.Response
+import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import com.google.gson.GsonBuilder
+import android.util.Base64
+import java.util.UUID
 import org.mozilla.javascript.WrappedException
 import splitties.init.appCtx
 import java.io.File
@@ -73,6 +79,12 @@ import java.net.SocketTimeoutException
 @SuppressLint("UnsafeOptInUsageError")
 class HttpReadAloudService : BaseReadAloudService(),
     Player.Listener {
+
+    companion object {
+        private const val DOUBAO_TTS_URL = "https://openspeech.bytedance.com/api/v1/tts"
+        private const val MIMO_TTS_URL = "https://api.xiaomimimo.com/v1/chat/completions"
+    }
+
     private val exoPlayer: ExoPlayer by lazy {
         ExoPlayer.Builder(this).build()
     }
@@ -230,7 +242,12 @@ class HttpReadAloudService : BaseReadAloudService(),
                     
                     // 2. 生成文件名：必须用 chapter.title (数据库原始标题)
                     val titleMd5 = MD5Utils.md5Encode16(chapter.title)
-                    val contentMd5 = MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate-|-$content")
+                    val extraKey = when {
+                        ReadAloud.httpTTS?.ttsType == "doubao" -> "-voice=${ReadAloud.httpTTS?.doubaoVoiceType}"
+                        ReadAloud.httpTTS?.ttsType == "mimo" -> "-voice=${ReadAloud.httpTTS?.mimoVoice}"
+                        else -> ""
+                    }
+                    val contentMd5 = MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate${extraKey}-|-$content")
                     val fileName = "${titleMd5}_${contentMd5}"
                     
                     val speakText = content.replace(AppPattern.notReadAloudRegex, "")
@@ -317,7 +334,12 @@ class HttpReadAloudService : BaseReadAloudService(),
                     currentCoroutineContext().ensureActive()
                     // 同样使用数据库标题，保持一致
                     val titleMd5 = MD5Utils.md5Encode16(chapter.title)
-                    val contentMd5 = MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate-|-$content")
+                    val extraKey = when {
+                        ReadAloud.httpTTS?.ttsType == "doubao" -> "-voice=${ReadAloud.httpTTS?.doubaoVoiceType}"
+                        ReadAloud.httpTTS?.ttsType == "mimo" -> "-voice=${ReadAloud.httpTTS?.mimoVoice}"
+                        else -> ""
+                    }
+                    val contentMd5 = MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate${extraKey}-|-$content")
                     val fileName = "${titleMd5}_${contentMd5}"
                     
                     val speakText = content.replace(AppPattern.notReadAloudRegex, "")
@@ -380,6 +402,14 @@ class HttpReadAloudService : BaseReadAloudService(),
         httpTts: HttpTTS,
         speakText: String
     ): InputStream? {
+        // 豆包 TTS 走专用路径
+        if (httpTts.ttsType == "doubao") {
+            return getDoubaoSpeakStream(httpTts, speakText)
+        }
+        // MiMo TTS 走专用路径
+        if (httpTts.ttsType == "mimo") {
+            return getMimoSpeakStream(httpTts, speakText)
+        }
         while (true) {
             try {
                 val analyzeUrl = AnalyzeUrl(
@@ -453,12 +483,242 @@ class HttpReadAloudService : BaseReadAloudService(),
     }
 
     /**
+     * 豆包 TTS 专用请求：发送 JSON，解析 Base64 音频响应
+     * 参考：https://www.volcengine.com/docs/6561/79820
+     */
+    private fun getDoubaoSpeakStream(
+        httpTts: HttpTTS,
+        speakText: String
+    ): InputStream? {
+        val gson = GsonBuilder().disableHtmlEscaping().create()
+        val appId = httpTts.doubaoAppId
+        val accessToken = httpTts.doubaoAccessToken
+        if (appId.isNullOrBlank() || accessToken.isNullOrBlank()) {
+            AppLog.put("豆包 TTS 配置不完整：缺少 AppID 或 AccessToken")
+            return null
+        }
+        // 文本截断（豆包 API 单次最大约 500 字符）
+        val truncatedText = speakText.take(480)
+        if (truncatedText.isBlank()) return null
+        // 构造请求体
+        val requestBody = mapOf(
+            "app" to mapOf(
+                "appid" to appId,
+                "token" to accessToken,
+                "cluster" to "volcano_tts"
+            ),
+            "user" to mapOf(
+                "uid" to "legado_${android.os.Build.FINGERPRINT.take(16)}"
+            ),
+            "audio" to mapOf(
+                "voice_type" to httpTts.doubaoVoiceType,
+                "encoding" to "mp3",
+                "rate" to 24000,
+                "speed_ratio" to httpTts.doubaoSpeedRatio,
+                "volume_ratio" to httpTts.doubaoVolumeRatio,
+                "pitch_ratio" to httpTts.doubaoPitchRatio,
+                "emotion" to httpTts.doubaoEmotion,
+                "language" to httpTts.doubaoLanguage
+            ),
+            "request" to mapOf(
+                "reqid" to UUID.randomUUID().toString(),
+                "text" to truncatedText,
+                "text_type" to "plain",
+                "operation" to "query"
+            )
+        )
+        val jsonBody = gson.toJson(requestBody)
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val request = Request.Builder()
+            .url(DOUBAO_TTS_URL)
+            .addHeader("Authorization", "Bearer;$accessToken")
+            .addHeader("Content-Type", "application/json")
+            .post(jsonBody.toRequestBody(mediaType))
+            .build()
+        return try {
+            val response = okHttpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                AppLog.put("豆包 TTS HTTP 错误: ${response.code}")
+                return null
+            }
+            val bodyStr = response.body.string()
+            val responseJson = gson.fromJson(bodyStr, Map::class.java)
+            val code = (responseJson["code"] as? Number)?.toInt()
+            if (code != 3000) {
+                val msg = responseJson["message"] ?: "unknown"
+                AppLog.put("豆包 TTS 业务错误: code=$code, message=$msg")
+                return null
+            }
+            val b64Data = responseJson["data"] as? String
+            if (b64Data.isNullOrBlank()) {
+                AppLog.put("豆包 TTS 响应中 data 字段为空")
+                return null
+            }
+            val audioBytes = Base64.decode(b64Data, Base64.NO_WRAP)
+            downloadErrorNo = 0
+            audioBytes.inputStream()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLog.put("豆包 TTS 请求异常: ${e.localizedMessage}", e)
+            null
+        }
+    }
+
+    /**
+     * MiMo TTS 专用请求：OpenAI chat completion 格式，解析 Base64 音频响应
+     * 参考：https://mimo.mi.com/docs/zh-CN/quick-start/usage-guide/audio/speech-synthesis-v2.5
+     */
+    private fun getMimoSpeakStream(
+        httpTts: HttpTTS,
+        speakText: String
+    ): InputStream? {
+        val gson = GsonBuilder().disableHtmlEscaping().create()
+        val apiKey = httpTts.mimoApiKey
+        if (apiKey.isNullOrBlank()) {
+            AppLog.put("MiMo TTS 配置不完整：缺少 API Key")
+            return null
+        }
+        val truncatedText = speakText.take(2000)
+        if (truncatedText.isBlank()) return null
+        // 构造 messages
+        val messages = mutableListOf<Map<String, String>>()
+        // user message: 风格指令（可选）
+        val style = httpTts.mimoStyle
+        if (!style.isNullOrBlank()) {
+            messages.add(mapOf("role" to "user", "content" to style))
+        } else {
+            messages.add(mapOf("role" to "user", "content" to ""))
+        }
+        // assistant message: 要合成的文本
+        messages.add(mapOf("role" to "assistant", "content" to truncatedText))
+        // 构造 voice
+        val voice = if (httpTts.mimoModel == "mimo-v2.5-tts-voicedesign"
+            && !httpTts.mimoVoiceDesign.isNullOrBlank()) {
+            httpTts.mimoVoiceDesign
+        } else {
+            httpTts.mimoVoice
+        }
+        val requestBody = mapOf(
+            "model" to httpTts.mimoModel,
+            "messages" to messages,
+            "audio" to mapOf(
+                "format" to "pcm16",
+                "voice" to voice
+            )
+        )
+        val jsonBody = gson.toJson(requestBody)
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val request = Request.Builder()
+            .url(MIMO_TTS_URL)
+            .addHeader("api-key", apiKey)
+            .addHeader("Content-Type", "application/json")
+            .post(jsonBody.toRequestBody(mediaType))
+            .build()
+        return try {
+            AppLog.put("MiMo TTS 请求: model=${httpTts.mimoModel}, voice=$voice, text=${truncatedText.take(50)}...")
+            val response = okHttpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                val errBody = try { response.body.string().take(500) } catch (_: Exception) { "" }
+                AppLog.put("MiMo TTS HTTP 错误: ${response.code}\n$errBody")
+                return null
+            }
+            val bodyStr = response.body.string()
+            AppLog.put("MiMo TTS 响应 (${bodyStr.length} chars): ${bodyStr.take(500)}")
+            val responseJson = gson.fromJson(bodyStr, Map::class.java)
+            // 解析 choices[0].message.audio.data
+            val choices = responseJson["choices"] as? List<*> ?: run {
+                AppLog.put("MiMo TTS 响应中无 choices 字段")
+                return null
+            }
+            val firstChoice = choices.firstOrNull() as? Map<*, *> ?: run {
+                AppLog.put("MiMo TTS choices 为空")
+                return null
+            }
+            val message = firstChoice["message"] as? Map<*, *> ?: run {
+                AppLog.put("MiMo TTS 响应中无 message 字段")
+                return null
+            }
+            val audio = message["audio"] as? Map<*, *> ?: run {
+                AppLog.put("MiMo TTS 响应中无 audio 字段")
+                return null
+            }
+            val b64Data = audio["data"] as? String
+            if (b64Data.isNullOrBlank()) {
+                AppLog.put("MiMo TTS 响应中 audio.data 为空")
+                return null
+            }
+            val audioBytes = Base64.decode(b64Data, Base64.NO_WRAP)
+            // pcm16 格式需要添加 WAV 头才能被 ExoPlayer 播放
+            val wavBytes = addWavHeader(audioBytes, 24000, 1, 16)
+            AppLog.put("MiMo TTS 音频数据: ${audioBytes.size} PCM → ${wavBytes.size} WAV")
+            downloadErrorNo = 0
+            wavBytes.inputStream()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLog.put("MiMo TTS 请求异常: ${e.localizedMessage}", e)
+            null
+        }
+    }
+
+    /**
+     * 为 PCM 数据添加 WAV 头
+     */
+    private fun addWavHeader(pcmData: ByteArray, sampleRate: Int, channels: Int, bitsPerSample: Int): ByteArray {
+        val byteRate = sampleRate * channels * bitsPerSample / 8
+        val blockAlign = channels * bitsPerSample / 8
+        val dataSize = pcmData.size
+        val header = ByteArray(44)
+        // RIFF header
+        header[0] = 'R'.code.toByte(); header[1] = 'I'.code.toByte()
+        header[2] = 'F'.code.toByte(); header[3] = 'F'.code.toByte()
+        val fileSize = 36 + dataSize
+        header[4] = (fileSize and 0xFF).toByte()
+        header[5] = (fileSize shr 8 and 0xFF).toByte()
+        header[6] = (fileSize shr 16 and 0xFF).toByte()
+        header[7] = (fileSize shr 24 and 0xFF).toByte()
+        header[8] = 'W'.code.toByte(); header[9] = 'A'.code.toByte()
+        header[10] = 'V'.code.toByte(); header[11] = 'E'.code.toByte()
+        // fmt chunk
+        header[12] = 'f'.code.toByte(); header[13] = 'm'.code.toByte()
+        header[14] = 't'.code.toByte(); header[15] = ' '.code.toByte()
+        header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0 // chunk size
+        header[20] = 1; header[21] = 0 // PCM format
+        header[22] = channels.toByte(); header[23] = 0
+        header[24] = (sampleRate and 0xFF).toByte()
+        header[25] = (sampleRate shr 8 and 0xFF).toByte()
+        header[26] = (sampleRate shr 16 and 0xFF).toByte()
+        header[27] = (sampleRate shr 24 and 0xFF).toByte()
+        header[28] = (byteRate and 0xFF).toByte()
+        header[29] = (byteRate shr 8 and 0xFF).toByte()
+        header[30] = (byteRate shr 16 and 0xFF).toByte()
+        header[31] = (byteRate shr 24 and 0xFF).toByte()
+        header[32] = blockAlign.toByte(); header[33] = 0
+        header[34] = bitsPerSample.toByte(); header[35] = 0
+        // data chunk
+        header[36] = 'd'.code.toByte(); header[37] = 'a'.code.toByte()
+        header[38] = 't'.code.toByte(); header[39] = 'a'.code.toByte()
+        header[40] = (dataSize and 0xFF).toByte()
+        header[41] = (dataSize shr 8 and 0xFF).toByte()
+        header[42] = (dataSize shr 16 and 0xFF).toByte()
+        header[43] = (dataSize shr 24 and 0xFF).toByte()
+        return header + pcmData
+    }
+
+    /**
      * 生成音频文件名
      */
     private fun md5SpeakFileName(content: String, textChapter: TextChapter? = this.textChapter): String {
         val titleToUse = textChapter?.chapter?.title ?: ""
+        val httpTts = ReadAloud.httpTTS
+        val extraKey = when {
+            httpTts?.ttsType == "doubao" -> "-voice=${httpTts.doubaoVoiceType}"
+            httpTts?.ttsType == "mimo" -> "-voice=${httpTts.mimoVoice}"
+            else -> ""
+        }
         return MD5Utils.md5Encode16(titleToUse) + "_" +
-                MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate-|-$content")
+                MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate${extraKey}-|-$content")
     }
 
     private fun createSilentSound(fileName: String) {

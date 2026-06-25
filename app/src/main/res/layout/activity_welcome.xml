@@ -16,12 +16,12 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <ImageView
-            android:layout_width="56dp"
-            android:layout_height="wrap_content"
+            android:layout_width="128dp"
+            android:layout_height="128dp"
             android:layout_marginStart="16dp"
             android:layout_marginTop="48dp"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_launcher_foreground" />
+            android:scaleType="fitCenter"
+            android:src="@drawable/welcome_icon" />
 
         <TextView
             android:id="@+id/tv_title"

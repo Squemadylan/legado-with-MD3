@@ -18,6 +18,11 @@ fun ReadContext.readInt(path: String): Int? = this.read(path, Int::class.java)
 
 fun ReadContext.readLong(path: String): Long? = this.read(path, Long::class.java)
 
+fun ReadContext.readFloat(path: String): Float? {
+    val value: Number? = this.read(path, Number::class.java)
+    return value?.toFloat()
+}
+
 fun com.google.gson.JsonObject.getString(name: String, default: String? = null): String? {
     val elem = get(name)
     return when {

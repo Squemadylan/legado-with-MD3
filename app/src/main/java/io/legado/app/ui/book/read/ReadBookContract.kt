@@ -203,6 +203,7 @@ data class ReadBookTtsEngineItem(
     val title: String,
     val value: String?,
     val loginUrl: String? = null,
+    val ttsType: String = "raw",
 )
 
 @Immutable
@@ -300,7 +301,6 @@ sealed interface ReadBookIntent {
 
     // Brightness
     data class SetBrightness(val value: Int) : ReadBookIntent
-    data object ToggleBrightnessAuto : ReadBookIntent
 
     // Seek bar jump
     data class SeekToChapter(val index: Int) : ReadBookIntent
@@ -444,6 +444,8 @@ sealed interface ReadBookIntent {
     data class ApplyPreDownloadNum(val value: Int) : ReadBookIntent
     data class ApplyAudioCacheCleanTime(val value: Int) : ReadBookIntent
     data class EditHttpTts(val engineId: Long? = null) : ReadBookIntent
+    data object EditDoubaoTts : ReadBookIntent
+    data object EditMimoTts : ReadBookIntent
     data class DeleteHttpTts(val engineId: Long) : ReadBookIntent
     data class SaveHttpTts(val httpTTS: HttpTTS) : ReadBookIntent
     data class ApplySpeakEnginePerBook(val value: String?) : ReadBookIntent
@@ -522,7 +524,6 @@ sealed interface ReadBookEffect {
     data object CancelSelect : ReadBookEffect
     data object UpSystemUiVisibility : ReadBookEffect
     data class SetBrightness(val value: Int) : ReadBookEffect
-    data object ToggleBrightnessAuto : ReadBookEffect
 
     // Read aloud / auto page
     data object ToggleReadAloud : ReadBookEffect
@@ -631,6 +632,9 @@ sealed interface ReadBookSheet {
     data object ReadAloudConfig : ReadBookSheet
     data object SpeakEngineConfig : ReadBookSheet
     data class HttpTtsEdit(val engineId: Long? = null) : ReadBookSheet
+    data object DoubaoTtsEdit : ReadBookSheet
+    data object MimoTtsEdit : ReadBookSheet
+    data object DoubaoVoiceSelect : ReadBookSheet
     data object PreDownloadConfig : ReadBookSheet
     data object AudioCacheCleanConfig : ReadBookSheet
     data object ClickActionConfig : ReadBookSheet
