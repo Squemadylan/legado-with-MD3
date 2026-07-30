@@ -1248,6 +1248,13 @@ private fun OverflowDropdownMenu(
             onClick = { dismiss(); onIntent(ReadBookIntent.AddBookmark) },
         )
         RoundDropdownMenuItem(
+            text = stringResource(R.string.tts_audio_cache),
+            onClick = {
+                dismiss()
+                onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.TtsAudioCache))
+            },
+        )
+        RoundDropdownMenuItem(
             text = stringResource(R.string.edit_content),
             onClick = {
                 dismiss()

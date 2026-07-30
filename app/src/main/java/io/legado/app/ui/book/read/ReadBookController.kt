@@ -720,6 +720,20 @@ class ReadBookController(
                 }
             }
 
+            is ReadBookEffect.StartTtsAudioCache -> {
+                ReadBook.book?.let { book ->
+                    io.legado.app.model.TtsAudioCacheModel.start(
+                        activity,
+                        book.bookUrl,
+                        effect.indices,
+                    )
+                }
+            }
+
+            is ReadBookEffect.CancelTtsAudioCache -> {
+                io.legado.app.model.TtsAudioCacheModel.stop(activity)
+            }
+
             // ── Lifecycle — route/bridge Activity operations ──
             is ReadBookEffect.RegisterTimeBatteryReceiver -> {
                 registerTimeBatteryReceiver()

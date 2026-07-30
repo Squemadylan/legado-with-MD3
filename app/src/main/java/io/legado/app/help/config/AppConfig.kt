@@ -24,6 +24,7 @@ import io.legado.app.utils.putPrefInt
 import io.legado.app.utils.putPrefString
 import io.legado.app.utils.sysConfiguration
 import io.legado.app.utils.toastOnUi
+import io.legado.app.help.tts.TtsEngineStore
 import splitties.init.appCtx
 
 @Suppress("MemberVisibilityCanBePrivate", "ConstPropertyName")
@@ -481,6 +482,8 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         get() = appCtx.getPrefString(PreferKey.ttsEngine)
         set(value) {
             appCtx.putPrefString(PreferKey.ttsEngine, value)
+            // 镜像到 Download/Yuedu，卸载重装后可自动恢复所选 TTS
+            TtsEngineStore.persist(value)
         }
 
     var webPort: Int

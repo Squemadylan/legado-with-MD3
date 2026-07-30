@@ -427,6 +427,9 @@
             android:name=".service.CacheBookService"
             android:foregroundServiceType="dataSync" />
         <service
+            android:name=".service.TtsAudioCacheService"
+            android:foregroundServiceType="dataSync" />
+        <service
             android:name=".service.ExportBookService"
             android:foregroundServiceType="dataSync" />
         <service

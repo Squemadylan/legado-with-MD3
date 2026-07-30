@@ -22,6 +22,7 @@ export default defineConfig({
           items: [
             { text: '帮助文档', link: '/guide/' },
             { text: '阅读界面', link: '/guide/reading' },
+            { text: 'TTS 音频缓存', link: '/guide/tts-audio-cache' },
             { text: '导入源管理', link: '/guide/book-source' },
             { text: '订阅源管理', link: '/guide/rss-source' },
             { text: '替换规则', link: '/guide/replace-rule' },
@@ -41,6 +42,7 @@ export default defineConfig({
           items: [
             { text: '帮助文档', link: '/guide/' },
             { text: '阅读界面', link: '/guide/reading' },
+            { text: 'TTS 音频缓存', link: '/guide/tts-audio-cache' },
             { text: '导入源管理', link: '/guide/book-source' },
             { text: '订阅源管理', link: '/guide/rss-source' },
             { text: '替换规则', link: '/guide/replace-rule' },

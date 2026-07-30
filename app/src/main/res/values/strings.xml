@@ -149,6 +149,19 @@
     <string name="offline_cache">Offline cache</string>
     <string name="offline_cache_t">Offline cache</string>
     <string name="offline_cache_s">Cache the selected chapter(s) to Storage</string>
+    <string name="tts_audio_cache">Cache audio</string>
+    <string name="tts_audio_cache_current">Current chapter</string>
+    <string name="tts_audio_cache_from_current">From current to end</string>
+    <string name="tts_audio_cache_entire">Entire book</string>
+    <string name="tts_audio_cache_start">Start caching</string>
+    <string name="tts_audio_cache_done">Audio cache completed</string>
+    <string name="tts_audio_cache_cancelled">Audio cache cancelled</string>
+    <string name="tts_audio_cache_no_space">Insufficient storage for TTS audio cache</string>
+    <string name="tts_audio_cache_need_http">System TTS does not support audio cache. Please select HTTP / Doubao / MiMo TTS.</string>
+    <string name="tts_audio_cache_running">Caching audio…</string>
+    <string name="tts_audio_cache_next_10">Next 10 chapters</string>
+    <string name="tts_audio_cache_clear_sel">Clear</string>
+    <string name="tts_audio_cache_selected_count">Selected %1$d / %2$d chapters</string>
     <string name="change_origin">Change Origin</string>
     <string name="about_description">
         \u3000\u3000 This is an open source reading software newly developed by Kotlin, welcome to join us.

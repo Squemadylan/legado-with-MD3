@@ -47,6 +47,7 @@ import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.source.getSourceType
+import io.legado.app.help.tts.TtsEngineStore
 import io.legado.app.lib.dialogs.SelectItem
 import io.legado.app.model.ImageProvider
 import io.legado.app.model.ReadAloud
@@ -720,10 +721,11 @@ class ReadBookViewModel(
                     appDb.httpTTSDao.insert(intent.httpTTS)
                 }.onSuccess {
                     loadTtsEngineItems()
-                    // 如果保存的是当前正在使用的引擎，刷新 ReadAloud.httpTTS
+                    // 如果保存的是当前正在使用的引擎，刷新 ReadAloud.httpTTS，并更新外部镜像
                     val savedId = intent.httpTTS.id.toString()
                     if (ReadAloud.ttsEngine == savedId) {
                         ReadAloud.httpTTS = intent.httpTTS
+                        TtsEngineStore.persist(savedId)
                     }
                     _uiState.update {
                         it.copy(
@@ -972,6 +974,14 @@ class ReadBookViewModel(
 
             is ReadBookIntent.DownloadChapters -> {
                 _effects.tryEmit(ReadBookEffect.DownloadChapters(intent.start, intent.end))
+            }
+
+            is ReadBookIntent.StartTtsAudioCache -> {
+                _effects.tryEmit(ReadBookEffect.StartTtsAudioCache(intent.indices))
+            }
+
+            is ReadBookIntent.CancelTtsAudioCache -> {
+                _effects.tryEmit(ReadBookEffect.CancelTtsAudioCache)
             }
 
             is ReadBookIntent.SaveChapterContent -> {

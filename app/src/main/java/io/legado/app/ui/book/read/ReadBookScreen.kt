@@ -17,6 +17,7 @@ import io.legado.app.ui.book.read.sheet.ClickActionConfigSheet
 import io.legado.app.ui.book.read.sheet.ContentEditSheet
 import io.legado.app.ui.book.read.sheet.DictSheet
 import io.legado.app.ui.book.read.sheet.DownloadSheet
+import io.legado.app.ui.book.read.sheet.TtsAudioCacheSheet
 import io.legado.app.ui.book.read.sheet.EffectiveReplacesSheet
 import io.legado.app.ui.book.read.sheet.FontSelectSheet
 import io.legado.app.ui.book.read.sheet.HighlightRuleConfigSheet
@@ -316,6 +317,18 @@ fun ReadBookScreen(
                 onDownload = { start, end ->
                     onIntent(ReadBookIntent.DismissSheet)
                     onIntent(ReadBookIntent.DownloadChapters(start, end))
+                },
+            )
+        }
+
+        is ReadBookSheet.TtsAudioCache -> {
+            TtsAudioCacheSheet(
+                onDismissRequest = dismissSheet,
+                onStart = { indices ->
+                    onIntent(ReadBookIntent.StartTtsAudioCache(indices))
+                },
+                onCancel = {
+                    onIntent(ReadBookIntent.CancelTtsAudioCache)
                 },
             )
         }

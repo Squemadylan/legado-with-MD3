@@ -11,6 +11,7 @@ import io.legado.app.help.config.LocalConfig
 import io.legado.app.help.config.ThemeConfigStore
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.coroutine.Coroutine
+import io.legado.app.help.tts.TtsEngineStore
 import io.legado.app.model.BookCover
 import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonArray
@@ -113,6 +114,8 @@ object DefaultData {
     fun importDefaultHttpTTS() {
         appDb.httpTTSDao.deleteDefault()
         appDb.httpTTSDao.insert(*httpTTS.toTypedArray())
+        // 默认项被覆盖后，用外部镜像把所选引擎/密钥写回
+        TtsEngineStore.restoreIfNeeded()
     }
 
     fun importDefaultTocRules() {

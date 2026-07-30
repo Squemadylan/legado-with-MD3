@@ -483,6 +483,10 @@ sealed interface ReadBookIntent {
     // Download chapters
     data class DownloadChapters(val start: Int, val end: Int) : ReadBookIntent
 
+    // TTS audio cache (persistent Download/Yuedu/{书名}TTS)
+    data class StartTtsAudioCache(val indices: IntArray) : ReadBookIntent
+    data object CancelTtsAudioCache : ReadBookIntent
+
     // Save chapter content (from chapter source change)
     data class SaveChapterContent(val content: String, val chapterIndex: Int) : ReadBookIntent
 
@@ -597,6 +601,10 @@ sealed interface ReadBookEffect {
     // Download chapters — Activity calls CacheBook.start()
     data class DownloadChapters(val start: Int, val end: Int) : ReadBookEffect
 
+    // TTS audio cache — Activity starts TtsAudioCacheService
+    data class StartTtsAudioCache(val indices: IntArray) : ReadBookEffect
+    data object CancelTtsAudioCache : ReadBookEffect
+
     // Lifecycle — route-level Activity operations
     data object RegisterTimeBatteryReceiver : ReadBookEffect
     data object UnregisterTimeBatteryReceiver : ReadBookEffect
@@ -614,6 +622,7 @@ sealed interface ReadBookEffect {
 sealed interface ReadBookSheet {
     data object PageAnim : ReadBookSheet
     data object Download : ReadBookSheet
+    data object TtsAudioCache : ReadBookSheet
     data object Charset : ReadBookSheet
     data object SimulatedReading : ReadBookSheet
     data object ToolButtonConfig : ReadBookSheet
